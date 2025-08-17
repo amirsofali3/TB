@@ -52,26 +52,60 @@ class TradingEngine:
         try:
             self.logger.info("Starting trading system...")
             
-            # 1. Test connections
-            if not self._test_connections():
-                raise Exception("Connection tests failed")
+            # 1. Test connections (but don't fail if API is down in demo mode)
+            api_available = self._test_connections()
+            if not api_available:
+                if self.demo_mode:
+                    self.logger.warning("API connection failed, running in offline demo mode")
+                else:
+                    raise Exception("Connection tests failed and not in demo mode")
+            else:
+                self.logger.info("All connection tests passed")
             
             # 2. Initialize data fetching
             self.data_fetcher.start_real_time_updates()
             
-            # 3. Train model if needed
+            # 3. Train model if needed (with fallback for demo mode)
             if not self.model_trained:
                 self.logger.info("Training AI model...")
-                self.train_model()
+                try:
+                    self.train_model()
+                except Exception as model_error:
+                    if self.demo_mode:
+                        self.logger.warning(f"Model training failed in demo mode, using fallback: {model_error}")
+                        self._use_fallback_model()
+                    else:
+                        raise model_error
             
-            # 4. Start trading
-            self.start_trading()
-            
-            self.logger.info("Trading system started successfully")
+            # 4. Start trading if model is available
+            if self.model_trained:
+                self.start_trading()
+                self.logger.info("Trading system started successfully")
+            else:
+                self.logger.warning("Trading system started in limited demo mode (no AI model)")
             
         except Exception as e:
             self.logger.error(f"Failed to start trading system: {e}")
-            raise
+            if not self.demo_mode:
+                raise
+            else:
+                self.logger.warning("Continuing in demo mode despite errors")
+    
+    def _use_fallback_model(self):
+        """Use fallback model when training fails in demo mode"""
+        self.logger.info("Setting up fallback model for demo mode...")
+        # Create a mock model that always returns low confidence predictions
+        class FallbackModel:
+            def __init__(self):
+                self.model_version = "fallback_demo_v1.0"
+            
+            def predict(self, data):
+                # Always return neutral prediction with low confidence
+                return {'action': 'hold', 'confidence': 0.5, 'predicted_return': 0.0}
+        
+        self.model = FallbackModel()
+        self.model_trained = True
+        self.logger.info("Fallback model configured for demo mode")
     
     def stop_system(self):
         """Stop the complete trading system"""
@@ -404,19 +438,24 @@ class TradingEngine:
         try:
             # Test database
             if not db_connection.test_connection():
+                self.logger.error("Database connection failed")
                 return False
             
-            # Test API if not demo mode
-            if not self.demo_mode:
-                if not self.api.test_connection():
+            # Test API (always test but don't fail in demo mode)
+            api_ok = self.api.test_connection()
+            if not api_ok:
+                if self.demo_mode:
+                    self.logger.warning("API connection failed but continuing in demo mode")
+                    return True  # Don't fail in demo mode
+                else:
+                    self.logger.error("API connection failed in live mode")
                     return False
             
-            self.logger.info("All connection tests passed")
             return True
             
         except Exception as e:
             self.logger.error(f"Connection test failed: {e}")
-            return False
+            return False if not self.demo_mode else True
     
     def get_system_status(self) -> Dict[str, Any]:
         """Get current system status"""
