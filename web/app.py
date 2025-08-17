@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 import json
 
-from database.connection import db_connection, db
+from database.connection import db_connection
 from database.models import *
 from config.settings import WEB_CONFIG
 
@@ -12,13 +12,8 @@ def create_app(trading_engine=None):
     """Create Flask application"""
     app = Flask(__name__)
     app.config['SECRET_KEY'] = WEB_CONFIG['secret_key']
-    app.config['SQLALCHEMY_DATABASE_URI'] = db_connection.connection_string
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
-    # Initialize database
-    db.init_app(app)
-    
-    # Enable CORS
+    # Enable CORS for development
     CORS(app)
     
     # Store trading engine reference

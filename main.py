@@ -85,13 +85,16 @@ class TradingBotApplication:
         try:
             self.logger.info("Initializing database connection...")
             
+            # First, try to initialize the engine
+            if not db_connection.init_engine():
+                raise Exception("Database engine initialization failed")
+            
+            # Test the connection
             if not db_connection.test_connection():
                 raise Exception("Database connection test failed")
             
-            # Initialize database engine
-            db_connection.init_engine()
-            
             # Create tables if they don't exist
+            self.logger.info("Creating database tables...")
             Base.metadata.create_all(db_connection.engine)
             
             self.logger.info("Database initialized successfully")
@@ -99,6 +102,11 @@ class TradingBotApplication:
             
         except Exception as e:
             self.logger.error(f"Database initialization failed: {e}")
+            self.logger.info("You may need to:")
+            self.logger.info("1. Install and start MySQL server")
+            self.logger.info("2. Create the database: CREATE DATABASE TB;")
+            self.logger.info("3. Update credentials in .env file")
+            self.logger.info("4. Or run setup_database.py for automated setup")
             return False
     
     def initialize_trading_engine(self):
