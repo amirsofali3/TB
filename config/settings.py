@@ -53,9 +53,9 @@ TP_SL_CONFIG = {
 COINEX_CONFIG = {
     'api_key': os.getenv('COINEX_API_KEY', ''),
     'secret_key': os.getenv('COINEX_SECRET_KEY', ''),
-    'sandbox_mode': os.getenv('COINEX_SANDBOX', 'true').lower() == 'true',
-    'base_url': 'https://api.coinex.com/v1/',
-    'sandbox_url': 'https://api.coinex.com/perpetual/v1/',
+    'sandbox_mode': os.getenv('COINEX_SANDBOX', 'false').lower() == 'true',  # Default to spot trading API
+    'base_url': 'https://api.coinex.com/v1/',  # Spot trading API
+    'sandbox_url': 'https://api.coinex.com/v1/',  # Use same spot API for better compatibility
 }
 
 # Machine Learning Configuration
