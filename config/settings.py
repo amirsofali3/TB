@@ -1,8 +1,24 @@
 # Trading Bot Configuration
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+# Load environment variables from .env file manually if dotenv is not available
+def load_env_file():
+    """Load .env file manually if python-dotenv is not available"""
+    env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+    if os.path.exists(env_path):
+        with open(env_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key.strip()] = value.strip()
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # Fallback to manual loading if dotenv is not available
+    load_env_file()
 
 # Database Configuration
 DATABASE_CONFIG = {
