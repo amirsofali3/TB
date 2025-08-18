@@ -315,7 +315,7 @@ class ModelTrainer:
             )
             
             # Initialize and train model
-            self.model = TradingModel(model_type='random_forest')
+            self.model = TradingModel(model_type='xgboost_professional')
             self.model.set_confidence_threshold(TRADING_CONFIG['confidence_threshold'])
             
             training_metrics = self.model.train(
