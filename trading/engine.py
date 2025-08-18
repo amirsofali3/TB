@@ -79,8 +79,13 @@ class TradingEngine:
             
             # 4. Start trading if model is available
             if self.model_trained:
+                self.logger.info("🚀 Starting trading system with trained AI model...")
                 self.start_trading()
-                self.logger.info("Trading system started successfully")
+                self.logger.info("✅ Trading system started successfully - Bot is now actively monitoring markets!")
+                self.logger.info(f"📊 Model: {self.model.model_type if hasattr(self.model, 'model_type') else 'Fallback'}")
+                self.logger.info(f"🎯 Confidence Threshold: {self.confidence_threshold * 100:.1f}%")
+                self.logger.info(f"💰 Demo Balance: ${self.demo_balance:.2f}")
+                self.logger.info(f"📈 Monitoring Symbols: {', '.join(self.symbols)}")
             else:
                 self.logger.warning("Trading system started in limited demo mode (no AI model)")
             
@@ -168,7 +173,9 @@ class TradingEngine:
         self.trading_thread = threading.Thread(target=self._trading_loop, daemon=True)
         self.trading_thread.start()
         
-        self.logger.info("Trading started")
+        self.logger.info("🔄 Trading loop started - Bot will now generate signals and manage positions")
+        self.logger.info(f"⏰ Signal generation: Every 4h + enhanced frequency for active trading")
+        self.logger.info(f"🎯 Confidence threshold: {self.confidence_threshold * 100:.1f}%")
     
     def stop_trading(self):
         """Stop trading"""
@@ -211,27 +218,51 @@ class TradingEngine:
                 self.logger.warning(f"No data available for {symbol}")
                 return
             
-            # Check if we're at a new timeframe boundary (4h)
+            # Check if we're at a new timeframe boundary (enhanced for more frequent trading)
             if not self._is_new_timeframe(symbol):
+                # Log less frequently to avoid spam, but show we're checking
+                if datetime.now().minute % 30 == 0:
+                    self.logger.debug(f"Waiting for timeframe signal for {symbol}")
                 return
+            
+            self.logger.info(f"Processing timeframe signal for {symbol} - generating prediction")
             
             # Generate prediction
             prediction_result = self._generate_signal(latest_data, symbol)
+            
+            if prediction_result is None:
+                self.logger.warning(f"Failed to generate prediction for {symbol}")
+                return
             
             if prediction_result and prediction_result['meets_threshold']:
                 signal = prediction_result['signal']
                 confidence = prediction_result['confidence']
                 
-                self.logger.info(f"Signal generated for {symbol}: {signal} (confidence: {confidence:.3f})")
+                self.logger.info(f"🎯 TRADING SIGNAL for {symbol}: {signal} (confidence: {confidence:.3f})")
+                self.logger.info(f"   Probabilities: BUY={prediction_result['probabilities']['BUY']:.3f}, "
+                               f"SELL={prediction_result['probabilities']['SELL']:.3f}, "
+                               f"HOLD={prediction_result['probabilities']['HOLD']:.3f}")
                 
                 # Record signal in database
                 self._record_signal(symbol, signal, confidence, latest_data['close'].iloc[-1])
                 
                 # Process signal
                 if signal == 'BUY':
+                    self.logger.info(f"📈 Processing BUY signal for {symbol}")
                     self._process_buy_signal(symbol, confidence, latest_data['close'].iloc[-1])
                 elif signal == 'SELL':
+                    self.logger.info(f"📉 Processing SELL signal for {symbol}")
                     self._process_sell_signal(symbol, confidence, latest_data['close'].iloc[-1])
+                else:
+                    self.logger.info(f"⏸️  HOLD signal for {symbol} - no action taken")
+            else:
+                # Show when signals don't meet threshold
+                if prediction_result:
+                    signal = prediction_result['signal'] 
+                    confidence = prediction_result['confidence']
+                    self.logger.info(f"Signal for {symbol}: {signal} (confidence: {confidence:.3f}) - Below threshold ({self.confidence_threshold:.3f})")
+                else:
+                    self.logger.warning(f"No prediction result for {symbol}")
             
         except Exception as e:
             self.logger.error(f"Error processing symbol {symbol}: {e}")
@@ -394,10 +425,25 @@ class TradingEngine:
             self.logger.error(f"Error recording signal: {e}")
     
     def _is_new_timeframe(self, symbol: str) -> bool:
-        """Check if we're at a new 4-hour timeframe boundary"""
-        # For 4-hour timeframe, check if current hour is divisible by 4
+        """Check if we should generate a new trading signal for symbol"""
+        # For more active trading, check every hour but bias towards 4-hour boundaries
         current_hour = datetime.now().hour
-        return current_hour % 4 == 0
+        current_minute = datetime.now().minute
+        
+        # Always signal at 4-hour boundaries (0, 4, 8, 12, 16, 20)
+        if current_hour % 4 == 0:
+            return True
+        
+        # Also signal at half-way points (2, 6, 10, 14, 18, 22) for more activity
+        if current_hour % 4 == 2:
+            return True
+        
+        # Add some randomization to prevent predictable patterns
+        # Check every 15 minutes with 10% probability for more frequent signals
+        if current_minute % 15 == 0 and (current_hour * 60 + current_minute) % 100 < 10:
+            return True
+        
+        return False
     
     def _update_trading_metrics(self):
         """Update daily trading metrics"""

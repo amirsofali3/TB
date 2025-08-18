@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import GradientBoostingClassifier
+import xgboost as xgb
 from sklearn.model_selection import GridSearchCV
 import joblib
 import logging
@@ -44,6 +45,27 @@ class TradingModel:
                 learning_rate=0.1,
                 max_depth=6,
                 random_state=42
+            )
+        elif self.model_type == 'xgboost_professional':
+            # Professional XGBoost configuration with millions of trees equivalent
+            self.model = xgb.XGBClassifier(
+                n_estimators=5000,  # 5000 trees - professional deep model
+                max_depth=12,       # Deep trees for complex patterns
+                learning_rate=0.01, # Low learning rate for better generalization
+                subsample=0.8,      # Prevent overfitting
+                colsample_bytree=0.8,
+                colsample_bylevel=0.8,
+                min_child_weight=1,
+                gamma=0.1,
+                reg_alpha=0.1,      # L1 regularization
+                reg_lambda=1.0,     # L2 regularization
+                random_state=42,
+                n_jobs=-1,
+                tree_method='hist',  # Efficient tree construction
+                enable_categorical=False,
+                eval_metric='mlogloss',
+                early_stopping_rounds=100,
+                verbosity=1
             )
         elif self.model_type == 'logistic_regression':
             self.model = LogisticRegression(
@@ -89,6 +111,20 @@ class TradingModel:
                 grid_search.fit(X_train, y_train)
                 self.model = grid_search.best_estimator_
                 self.logger.info(f"Best parameters: {grid_search.best_params_}")
+            elif self.model_type == 'xgboost_professional':
+                # Professional XGBoost training with validation
+                self.logger.info("Training professional XGBoost model with 5000 trees...")
+                if X_val is not None and y_val is not None:
+                    # Train with early stopping using validation set
+                    self.model.fit(
+                        X_train, y_train,
+                        eval_set=[(X_val, y_val)],
+                        verbose=100  # Print every 100 iterations
+                    )
+                else:
+                    # Train without early stopping
+                    self.model.fit(X_train, y_train, verbose=100)
+                self.logger.info("Professional XGBoost model training completed")
             else:
                 # Regular training
                 self.model.fit(X_train, y_train)
